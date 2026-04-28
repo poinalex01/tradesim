@@ -31,6 +31,14 @@ public class MarketDataService {
         return marketCandleRepository.findByDatasetAndAssetOrderByTimestampAsc(dataset, asset);
     }
 
+    public double getCurrentPrice(String asset, String dataset, int tickIndex) {
+        List<MarketCandle> candles = marketCandleRepository
+                .findByDatasetAndAssetOrderByTimestampAsc(dataset, asset);
+        if (candles.isEmpty()) return 0;
+        int index = Math.min(tickIndex, candles.size() - 1);
+        return candles.get(index).getClose();
+    }
+
     public String loadDataset(String asset, String dataset, long fromTimestamp, long toTimestamp) {
         if (marketCandleRepository.existsByDatasetAndAsset(dataset, asset)) {
             return "Dataset already exists: " + dataset;

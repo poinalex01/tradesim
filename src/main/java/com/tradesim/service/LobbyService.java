@@ -10,6 +10,7 @@ import com.tradesim.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -87,6 +88,25 @@ public class LobbyService {
                 .status(lobby.getStatus().name())
                 .maxLeverage(lobby.getMaxLeverage())
                 .creatorUsername(lobby.getCreator().getUsername())
+                .currentTickIndex(lobby.getCurrentTickIndex())
                 .build();
+    }
+
+    public LobbyResponse startLobby(Long lobbyId, String username) {
+        Lobby lobby = lobbyRepository.findById(lobbyId)
+                .orElseThrow(() -> new RuntimeException("Lobby not found"));
+
+        if (!lobby.getCreator().getUsername().equals(username)) {
+            throw new RuntimeException("Only the creator can start the lobby");
+        }
+        if (lobby.getStatus() != LobbyStatus.WAITING) {
+            throw new RuntimeException("Lobby already started");
+        }
+
+        lobby.setStatus(LobbyStatus.RUNNING);
+        lobby.setStartedAt(LocalDateTime.now());
+        lobby.setCurrentTickIndex(0);
+        lobbyRepository.save(lobby);
+        return toResponse(lobby);
     }
 }

@@ -18,4 +18,6 @@ public class LobbyResponse {
     private String status;
     private int maxLeverage;
     private String creatorUsername;
+
+    private int currentTickIndex;
 }

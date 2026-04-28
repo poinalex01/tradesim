@@ -48,15 +48,23 @@ public class Lobby {
     private LocalDateTime startedAt;
     private LocalDateTime endedAt;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "creator_id", nullable = false)
     private User creator;
 
-    @ManyToMany(fetch = FetchType.LAZY)
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "lobby_players",
             joinColumns = @JoinColumn(name = "lobby_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
     private List<User> players = new ArrayList<>();
+
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private int currentTickIndex = 0;
+
+    @Column(nullable = false, columnDefinition = "integer default 5")
+    private int tickIntervalSeconds = 5;
+
+    private LocalDateTime lastTickTime;
 }

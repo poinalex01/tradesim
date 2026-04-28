@@ -41,4 +41,12 @@ public class LobbyController {
     public ResponseEntity<LobbyResponse> getLobby(@PathVariable Long lobbyId) {
         return ResponseEntity.ok(lobbyService.getLobby(lobbyId));
     }
+
+    @PostMapping("/{lobbyId}/start")
+    public ResponseEntity<LobbyResponse> startLobby(
+            @PathVariable Long lobbyId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        System.out.println("userDetails = " + userDetails);
+        return ResponseEntity.ok(lobbyService.startLobby(lobbyId, userDetails.getUsername()));
+    }
 }

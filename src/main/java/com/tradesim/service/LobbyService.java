@@ -109,4 +109,11 @@ public class LobbyService {
         lobbyRepository.save(lobby);
         return toResponse(lobby);
     }
+
+    public List<LobbyResponse> getAllLobbies() {
+        return lobbyRepository.findAll()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
 }

@@ -32,11 +32,6 @@ public class LobbyController {
         return ResponseEntity.ok(lobbyService.joinLobby(lobbyId, userDetails.getUsername()));
     }
 
-    @GetMapping
-    public ResponseEntity<List<LobbyResponse>> getWaitingLobbies() {
-        return ResponseEntity.ok(lobbyService.getWaitingLobbies());
-    }
-
     @GetMapping("/{lobbyId}")
     public ResponseEntity<LobbyResponse> getLobby(@PathVariable Long lobbyId) {
         return ResponseEntity.ok(lobbyService.getLobby(lobbyId));
@@ -48,5 +43,10 @@ public class LobbyController {
             @AuthenticationPrincipal UserDetails userDetails) {
         System.out.println("userDetails = " + userDetails);
         return ResponseEntity.ok(lobbyService.startLobby(lobbyId, userDetails.getUsername()));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<LobbyResponse>> getAllLobbies() {
+        return ResponseEntity.ok(lobbyService.getAllLobbies());
     }
 }

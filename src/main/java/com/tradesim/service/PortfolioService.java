@@ -22,6 +22,9 @@ public class PortfolioService {
     public Portfolio getOrCreatePortfolio(User user, Lobby lobby) {
         return portfolioRepository.findByUserAndLobby(user, lobby)
                 .orElseGet(() -> {
+                    Portfolio existing = portfolioRepository.findByUserAndLobby(user, lobby).orElse(null);
+                    if (existing != null) return existing;
+
                     Portfolio p = Portfolio.builder()
                             .user(user)
                             .lobby(lobby)

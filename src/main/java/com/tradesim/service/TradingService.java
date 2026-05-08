@@ -32,7 +32,10 @@ public class TradingService {
                 request.getAsset(), lobby.getDataset(), lobby.getCurrentTickIndex());
         if (currentPrice == 0) throw new RuntimeException("No price data for asset");
 
-        int leverage = Math.min(request.getLeverage(), lobby.getMaxLeverage());
+        if (request.getLeverage() < 1 || request.getLeverage() > lobby.getMaxLeverage()) {
+            throw new RuntimeException("Leverage must be between 1 and " + lobby.getMaxLeverage());
+        }
+        int leverage = request.getLeverage();
         double cost = request.getQuantity() * currentPrice;
 
         if (cost > portfolio.getCashBalance()) {

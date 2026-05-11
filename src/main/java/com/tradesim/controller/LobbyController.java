@@ -2,6 +2,7 @@ package com.tradesim.controller;
 
 import com.tradesim.dto.CreateLobbyRequest;
 import com.tradesim.dto.LobbyResponse;
+import com.tradesim.dto.PortfolioResponse;
 import com.tradesim.service.LobbyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -48,5 +49,10 @@ public class LobbyController {
     @GetMapping
     public ResponseEntity<List<LobbyResponse>> getAllLobbies() {
         return ResponseEntity.ok(lobbyService.getAllLobbies());
+    }
+
+    @GetMapping("/{lobbyId}/leaderboard")
+    public ResponseEntity<List<PortfolioResponse>> getLeaderBoard(@PathVariable Long lobbyId) {
+        return ResponseEntity.ok(lobbyService.getLeaderBoard(lobbyId));
     }
 }

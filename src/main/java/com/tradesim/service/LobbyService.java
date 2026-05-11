@@ -2,10 +2,11 @@ package com.tradesim.service;
 
 import com.tradesim.dto.CreateLobbyRequest;
 import com.tradesim.dto.LobbyResponse;
-import com.tradesim.entity.Lobby;
-import com.tradesim.entity.LobbyStatus;
-import com.tradesim.entity.User;
+import com.tradesim.dto.PortfolioResponse;
+import com.tradesim.entity.*;
 import com.tradesim.repository.LobbyRepository;
+import com.tradesim.repository.PortfolioRepository;
+import com.tradesim.repository.PositionRepository;
 import com.tradesim.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,9 @@ public class LobbyService {
 
     private final LobbyRepository lobbyRepository;
     private final UserRepository userRepository;
+    private final PortfolioRepository portfolioRepository;
+    private final PositionRepository positionRepository;
+    private final MarketDataService marketDataService;
 
     public LobbyResponse createLobby(CreateLobbyRequest request, String username) {
         User creator = userRepository.findByUsername(username)
@@ -115,5 +119,42 @@ public class LobbyService {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    public List<PortfolioResponse> getLeaderBoard(Long lobbyId) {
+        Lobby lobby = lobbyRepository.findById(lobbyId).orElseThrow(() -> new RuntimeException("Lobby not found"));
+        List<Portfolio> portfolios = portfolioRepository.findByLobby(lobby);
+
+        return portfolios.stream().map(p -> {
+            List<Position> openPositions = positionRepository.findByPortfolioAndStatus(p, PositionStatus.OPEN);
+            double positionsValue = openPositions.stream()
+                    .mapToDouble(pos -> calculatePositionValue(pos, lobby))
+                    .sum();
+            double totalValue = p.getCashBalance() + positionsValue;
+            double pnl = totalValue - p.getStartBalance();
+            double pnlPercent = (pnl / p.getStartBalance()) * 100;
+
+            return PortfolioResponse.builder()
+                    .id(p.getId())
+                    .username(p.getUser().getUsername())
+                    .cashBalance(p.getCashBalance())
+                    .startBalance(p.getStartBalance())
+                    .totalValue(totalValue)
+                    .profitLoss(pnl)
+                    .profitLossPercent(pnlPercent)
+                    .openPositions(List.of())
+                    .build();
+        }).toList();
+    }
+
+    private double calculatePositionValue(Position pos, Lobby lobby) {
+        double currentPrice = marketDataService.getCurrentPrice(
+                pos.getAsset(), lobby.getDataset(), lobby.getCurrentTickIndex());
+        if (pos.getType() == PositionType.LONG) {
+            return pos.getQuantity() * currentPrice;
+        } else {
+            double pnl = (pos.getEntryPrice() - currentPrice) * pos.getQuantity() * pos.getLeverage();
+            return pos.getEntryPrice() * pos.getQuantity() + pnl;
+        }
     }
 }

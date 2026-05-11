@@ -34,7 +34,7 @@ public class GameEngineService {
             }
 
             List<MarketCandle> candles = marketCandleRepository
-                    .findByDatasetAndAssetOrderByTimestampAsc(lobby.getDataset(), "BTC");
+                    .findByDatasetAndAssetOrderByTimestampAsc(lobby.getDataset(), getAssetForDataset(lobby.getDataset()));
 
             if (candles.isEmpty()) continue;
 
@@ -50,7 +50,7 @@ public class GameEngineService {
                         GameUpdateMessage.builder()
                                 .lobbyId(lobby.getId())
                                 .tickIndex(lobby.getCurrentTickIndex())
-                                .asset("BTC")
+                                .asset(getAssetForDataset(lobby.getDataset()))
                                 .currentPrice(candles.get(lobby.getCurrentTickIndex()).getClose())
                                 .timestamp(LocalDateTime.now())
                                 .build()
@@ -69,7 +69,7 @@ public class GameEngineService {
                     GameUpdateMessage.builder()
                             .lobbyId(lobby.getId())
                             .tickIndex(nextTick)
-                            .asset("BTC")
+                            .asset(getAssetForDataset(lobby.getDataset()))
                             .open(currentCandle.getOpen())
                             .high(currentCandle.getHigh())
                             .low(currentCandle.getLow())
@@ -79,5 +79,11 @@ public class GameEngineService {
                             .build()
             );
         }
+    }
+
+    private String getAssetForDataset(String dataset) {
+        if (dataset.startsWith("ETH")) return "ETH";
+        if (dataset.startsWith("SOL")) return "SOL";
+        return "BTC";
     }
 }

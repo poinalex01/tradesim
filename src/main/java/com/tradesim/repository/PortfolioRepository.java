@@ -13,4 +13,5 @@ import java.util.Optional;
 public interface PortfolioRepository extends JpaRepository<Portfolio, Long> {
     Optional<Portfolio> findByUserAndLobby(User user, Lobby lobby);
     List<Portfolio> findByLobby(Lobby lobby);
+    List<Portfolio> findByUser(User user);
 }

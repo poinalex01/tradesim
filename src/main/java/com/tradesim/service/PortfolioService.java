@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -20,19 +21,21 @@ public class PortfolioService {
     private final MarketDataService marketDataService;
 
     public Portfolio getOrCreatePortfolio(User user, Lobby lobby) {
-        return portfolioRepository.findByUserAndLobby(user, lobby)
-                .orElseGet(() -> {
-                    Portfolio existing = portfolioRepository.findByUserAndLobby(user, lobby).orElse(null);
-                    if (existing != null) return existing;
+        Optional<Portfolio> existing = portfolioRepository.findByUserAndLobby(user, lobby);
+        if (existing.isPresent()) return existing.get();
 
-                    Portfolio p = Portfolio.builder()
-                            .user(user)
-                            .lobby(lobby)
-                            .cashBalance(lobby.getStartBalance())
-                            .startBalance(lobby.getStartBalance())
-                            .build();
-                    return portfolioRepository.save(p);
-                });
+        try {
+            Portfolio p = Portfolio.builder()
+                    .user(user)
+                    .lobby(lobby)
+                    .cashBalance(lobby.getStartBalance())
+                    .startBalance(lobby.getStartBalance())
+                    .build();
+            return portfolioRepository.save(p);
+        } catch (Exception e) {
+            return portfolioRepository.findByUserAndLobby(user, lobby)
+                    .orElseThrow(() -> new RuntimeException("Could not create portfolio"));
+        }
     }
 
     public PortfolioResponse getPortfolio(String username, Long lobbyId) {

@@ -14,4 +14,6 @@ public interface SeasonStatsRepository extends JpaRepository<SeasonStats, Long> 
     Optional<SeasonStats> findByUserAndSeason(User user, Season season);
     List<SeasonStats> findBySeasonOrderByTotalProfitDesc(Season season);
     List<SeasonStats> findBySeason(Season season);
+    Optional<SeasonStats> findByUserAndSeasonAndGameMode(User user, Season season, String gameMode);
+    List<SeasonStats> findBySeasonAndGameModeOrderByTotalProfitDesc(Season season, String gameMode);
 }

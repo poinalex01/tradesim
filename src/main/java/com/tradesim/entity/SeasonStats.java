@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "season_stats", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"user_id", "season_id"})
+        @UniqueConstraint(columnNames = {"user_id", "season_id", "game_mode"})
 })
 @Data
 @NoArgsConstructor
@@ -29,6 +29,11 @@ public class SeasonStats {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "season_id", nullable = false)
     private Season season;
+
+    // @Column(nullable = false)
+    // private String gameMode;
+    @Column(nullable = false, columnDefinition = "varchar(255) default 'NORMAL'")
+    private String gameMode;
 
     @Column(nullable = false)
     private double totalProfit = 0;

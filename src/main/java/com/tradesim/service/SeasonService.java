@@ -65,13 +65,14 @@ public class SeasonService {
                 .orElseThrow(() -> new RuntimeException("No active season"));
     }
 
-    public void updateSeasonStats(User user, double profit, boolean won) {
+    public void updateSeasonStats(User user, double profit, boolean won, String gameMode) {
         Season season = getCurrentSeason();
 
-        SeasonStats stats = seasonStatsRepository.findByUserAndSeason(user, season)
+        SeasonStats stats = seasonStatsRepository.findByUserAndSeasonAndGameMode(user, season, gameMode)
                 .orElseGet(() -> SeasonStats.builder()
                         .user(user)
                         .season(season)
+                        .gameMode(gameMode)
                         .totalProfit(0)
                         .gamesPlayed(0)
                         .wins(0)
@@ -83,18 +84,18 @@ public class SeasonService {
         stats.setLastUpdated(LocalDateTime.now());
 
         seasonStatsRepository.save(stats);
-        recalculateRanks(season);
+        recalculateRanks(season, gameMode);
     }
 
-    private void recalculateRanks(Season season) {
-        List<SeasonStats> allStats = seasonStatsRepository.findBySeasonOrderByTotalProfitDesc(season);
+    private void recalculateRanks(Season season, String gameMode) {
+        List<SeasonStats> allStats = seasonStatsRepository
+                .findBySeasonAndGameModeOrderByTotalProfitDesc(season, gameMode);
         int total = allStats.size();
         if (total == 0) return;
 
         for (int i = 0; i < total; i++) {
             double percentile = (double) (i + 1) / total * 100;
-            String rank = getRank(percentile);
-            allStats.get(i).setRank(rank);
+            allStats.get(i).setRank(getRank(percentile));
         }
 
         seasonStatsRepository.saveAll(allStats);
@@ -112,9 +113,10 @@ public class SeasonService {
         return "IRON";
     }
 
-    public SeasonResponse getCurrentSeasonStandings(String username) {
+    public SeasonResponse getCurrentSeasonStandings(String username, String gameMode) {
         Season season = getCurrentSeason();
-        List<SeasonStats> allStats = seasonStatsRepository.findBySeasonOrderByTotalProfitDesc(season);
+        List<SeasonStats> allStats = seasonStatsRepository
+                .findBySeasonAndGameModeOrderByTotalProfitDesc(season, gameMode);
 
         List<SeasonStandingResponse> standings = new ArrayList<>();
         SeasonStandingResponse myStats = null;

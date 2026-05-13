@@ -17,7 +17,8 @@ public class SeasonController {
 
     @GetMapping("/current")
     public ResponseEntity<SeasonResponse> getCurrentSeason(
+            @RequestParam String gameMode,
             @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(seasonService.getCurrentSeasonStandings(userDetails.getUsername()));
+        return ResponseEntity.ok(seasonService.getCurrentSeasonStandings(userDetails.getUsername(), gameMode));
     }
 }

@@ -2,6 +2,7 @@ package com.tradesim.service;
 
 import com.tradesim.entity.MarketCandle;
 import com.tradesim.repository.MarketCandleRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -21,11 +22,24 @@ public class MarketDataService {
     private final MarketCandleRepository marketCandleRepository;
     private final WebClient.Builder webClientBuilder;
 
-    private static final Map<String, String> ASSET_IDS = Map.of(
-            "BTC", "bitcoin",
-            "ETH", "ethereum",
-            "SOL", "solana"
-    );
+    @PostConstruct
+    public void initMarketData() {
+        loadIfMissing("BTC", "BTC_2021_Q1", 1609459200, 1617235200);
+        loadIfMissing("BTC", "BTC_2020_COVID", 1580515200, 1588291200);
+        loadIfMissing("BTC", "BTC_2022_BEAR", 1640995200, 1672531200);
+        loadIfMissing("BTC", "BTC_2021_Q3", 1625097600, 1632960000);
+        loadIfMissing("ETH", "ETH_2021_Q2", 1617235200, 1625097600);
+    }
+    private void loadIfMissing(String asset, String dataset, long from, long to) {
+        if (!marketCandleRepository.existsByDatasetAndAsset(dataset, asset)) {
+            try {
+                System.out.println("Loading market data: " + dataset);
+                loadDataset(asset, dataset, from, to);
+            } catch (Exception e) {
+                System.out.println("Failed to load " + dataset + ": " + e.getMessage());
+            }
+        }
+    }
 
     public List<MarketCandle> getCandles(String dataset, String asset) {
         return marketCandleRepository.findByDatasetAndAssetOrderByTimestampAsc(dataset, asset);

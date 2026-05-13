@@ -56,7 +56,7 @@ public class GameEngineService {
                     Portfolio p = portfolios.get(i);
                     double profit = p.getCashBalance() - p.getStartBalance();
                     boolean won = i == 0;
-                    seasonService.updateSeasonStats(p.getUser(), profit, won);
+                    seasonService.updateSeasonStats(p.getUser(), profit, won, lobby.getGameMode());
                 }
 
                 messagingTemplate.convertAndSend(

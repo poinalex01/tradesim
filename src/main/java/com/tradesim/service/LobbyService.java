@@ -18,6 +18,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class LobbyService {
+    private static final int START_BALANCE = 10000;
 
     private final LobbyRepository lobbyRepository;
     private final UserRepository userRepository;
@@ -32,7 +33,7 @@ public class LobbyService {
         Lobby lobby = Lobby.builder()
                 .name(request.getName())
                 .maxPlayers(request.getMaxPlayers())
-                .startBalance(request.getStartBalance())
+                .startBalance(START_BALANCE)
                 .dataset(request.getDataset())
                 .gameMode(request.getGameMode())
                 .maxLeverage(request.getMaxLeverage())
@@ -41,6 +42,7 @@ public class LobbyService {
                 .players(new ArrayList<>(List.of(creator)))
                 .build();
 
+        checkPlayerNotAlreadyInActiveGame(creator, request.getGameMode());
         lobbyRepository.save(lobby);
         return toResponse(lobby);
     }
@@ -62,6 +64,7 @@ public class LobbyService {
             throw new RuntimeException("Already in lobby");
         }
 
+        checkPlayerNotAlreadyInActiveGame(user,lobby.getGameMode());
         lobby.getPlayers().add(user);
         lobbyRepository.save(lobby);
         return toResponse(lobby);
@@ -156,5 +159,11 @@ public class LobbyService {
             double pnl = (pos.getEntryPrice() - currentPrice) * pos.getQuantity() * pos.getLeverage();
             return pos.getEntryPrice() * pos.getQuantity() + pnl;
         }
+    }
+
+    private void checkPlayerNotAlreadyInActiveGame(User user, String gameMode) {
+        lobbyRepository.findActiveByUserAndGameMode(user, gameMode).ifPresent(l -> {
+            throw new RuntimeException("You already have an active " + gameMode + " lobby");
+        });
     }
 }

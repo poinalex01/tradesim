@@ -1,13 +1,11 @@
 package com.tradesim.service;
 
 import com.tradesim.dto.GameUpdateMessage;
-import com.tradesim.entity.Lobby;
-import com.tradesim.entity.LobbyStatus;
-import com.tradesim.entity.MarketCandle;
-import com.tradesim.entity.Portfolio;
+import com.tradesim.entity.*;
 import com.tradesim.repository.LobbyRepository;
 import com.tradesim.repository.MarketCandleRepository;
 import com.tradesim.repository.PortfolioRepository;
+import com.tradesim.repository.PositionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -25,6 +23,8 @@ public class GameEngineService {
     private final SimpMessagingTemplate messagingTemplate;
     private final SeasonService seasonService;
     private final PortfolioRepository portfolioRepository;
+    private final PositionRepository positionRepository;
+    private final MarketDataService marketDataService;
 
     @Scheduled(fixedDelay = 1000)
     public void tick() {
@@ -51,6 +51,21 @@ public class GameEngineService {
 
                 List<Portfolio> portfolios = portfolioRepository.findByLobby(lobby);
                 portfolios.sort((a, b) -> Double.compare(b.getCashBalance(), a.getCashBalance()));
+
+                // close all positions
+                for (Portfolio p : portfolios) {
+                    List<Position> openPositions = positionRepository.findByPortfolioAndStatus(p, PositionStatus.OPEN);
+                    for (Position pos : openPositions) {
+                        double currentPrice = marketDataService.getCurrentPrice(
+                                pos.getAsset(), lobby.getDataset(), lobby.getCurrentTickIndex());
+                        double returnValue = calculateReturnValue(pos, currentPrice);
+                        p.setCashBalance(p.getCashBalance() + returnValue);
+                        pos.setStatus(PositionStatus.CLOSED);
+                        pos.setClosedAt(LocalDateTime.now());
+                        positionRepository.save(pos);
+                    }
+                    portfolioRepository.save(p);
+                }
 
                 for (int i = 0; i < portfolios.size(); i++) {
                     Portfolio p = portfolios.get(i);
@@ -96,6 +111,17 @@ public class GameEngineService {
                             .timestamp(currentCandle.getTimestamp())
                             .build()
             );
+        }
+    }
+
+    private double calculateReturnValue(Position position, double currentPrice) {
+        double initialCost = position.getQuantity() * position.getEntryPrice();
+        if (position.getType() == PositionType.LONG) {
+            double pnl = (currentPrice - position.getEntryPrice()) * position.getQuantity() * position.getLeverage();
+            return Math.max(0, initialCost + pnl);
+        } else {
+            double pnl = (position.getEntryPrice() - currentPrice) * position.getQuantity() * position.getLeverage();
+            return Math.max(0, initialCost + pnl);
         }
     }
 

@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 public class GameUpdateMessage {
     private Long lobbyId;
     private int tickIndex;
+    private int subTick;
     private String asset;
     private double open;
     private double high;
@@ -19,4 +20,5 @@ public class GameUpdateMessage {
     private double close;
     private double currentPrice;
     private LocalDateTime timestamp;
+    private boolean candleComplete;
 }

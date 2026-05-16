@@ -56,7 +56,6 @@ public class LobbyService {
                 .status(LobbyStatus.WAITING)
                 .creator(creator)
                 .players(new ArrayList<>(List.of(creator)))
-                .tickIntervalSeconds(5)
                 .build();
 
         lobbyRepository.save(lobby);
@@ -143,7 +142,6 @@ public class LobbyService {
         lobby.setStatus(LobbyStatus.RUNNING);
         lobby.setStartedAt(LocalDateTime.now());
         lobby.setCurrentTickIndex((int) contextCount);
-        lobby.setTickIntervalSeconds(GAMEMODE_TICK_INTERVAL.getOrDefault(lobby.getGameMode(), 5));
         lobbyRepository.save(lobby);
         return toResponse(lobby);
     }

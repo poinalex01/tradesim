@@ -63,10 +63,6 @@ public class Lobby {
     @Column(nullable = false, columnDefinition = "integer default 0")
     private int currentTickIndex = 0;
 
-    @Column(nullable = false, columnDefinition = "integer default 5")
-    private int tickIntervalSeconds = 5;
-
-    private LocalDateTime lastTickTime;
     @Column(nullable = false, columnDefinition = "integer default 0")
     private int contextCandleCount = 0;
 
@@ -75,4 +71,10 @@ public class Lobby {
 
     @Column(nullable = false, columnDefinition = "varchar(255) default 'PENDING'")
     private String asset = "PENDING";
+
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private int currentSubTick = 0;
+
+    @Column(nullable = false, columnDefinition = "integer default 100")
+    private int subTicksPerCandle = 100;
 }

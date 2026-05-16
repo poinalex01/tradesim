@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -26,92 +27,150 @@ public class GameEngineService {
     private final PositionRepository positionRepository;
     private final MarketDataService marketDataService;
 
-    @Scheduled(fixedDelay = 1000)
+    private static final Map<String, Integer> SUBTICKS_PER_CANDLE = Map.of(
+            "SCALPING", 60,
+            "DAY_TRADING", 120,
+            "SWING_TRADING", 240
+    );
+
+    private static final Map<String, Integer> TICK_INTERVAL_MS = Map.of(
+            "SCALPING", 1000,
+            "DAY_TRADING", 5000,
+            "SWING_TRADING", 30000
+    );
+
+    private final Map<Long, Double> currentPrices = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<Long, Long> lastTickTimes = new java.util.concurrent.ConcurrentHashMap<>();
+
+    @Scheduled(fixedDelay = 500)
     public void tick() {
         List<Lobby> runningLobbies = lobbyRepository.findByStatus(LobbyStatus.RUNNING);
 
         for (Lobby lobby : runningLobbies) {
-            if (lobby.getLastTickTime() != null) {
-                long secondsSinceLastTick = java.time.Duration.between(
-                        lobby.getLastTickTime(), LocalDateTime.now()).getSeconds();
-                if (secondsSinceLastTick < lobby.getTickIntervalSeconds()) continue;
-            }
+            long now = System.currentTimeMillis();
+            long lastTick = lastTickTimes.getOrDefault(lobby.getId(), 0L);
+            int intervalMs = TICK_INTERVAL_MS.getOrDefault(lobby.getGameMode(), 5000);
+
+            if (now - lastTick < intervalMs) continue;
+            lastTickTimes.put(lobby.getId(), now);
 
             List<MarketCandle> candles = marketCandleRepository
-                    .findByDatasetAndAssetOrderByTimestampAsc(lobby.getDataset(), getAssetForDataset(lobby.getDataset()));
+                    .findByDatasetAndAssetOrderByTimestampAsc(lobby.getDataset(), lobby.getAsset());
 
             if (candles.isEmpty()) continue;
 
-            int nextTick = lobby.getCurrentTickIndex() + 1;
+            int subTicksPerCandle = SUBTICKS_PER_CANDLE.getOrDefault(lobby.getGameMode(), 100);
+            int currentCandle = lobby.getCurrentTickIndex();
+            int currentSubTick = lobby.getCurrentSubTick();
 
-            if (nextTick >= candles.size()) {
-                lobby.setStatus(LobbyStatus.FINISHED);
-                lobby.setEndedAt(LocalDateTime.now());
-                lobbyRepository.save(lobby);
-
-                List<Portfolio> portfolios = portfolioRepository.findByLobby(lobby);
-                portfolios.sort((a, b) -> Double.compare(b.getCashBalance(), a.getCashBalance()));
-
-                // close all positions
-                for (Portfolio p : portfolios) {
-                    List<Position> openPositions = positionRepository.findByPortfolioAndStatus(p, PositionStatus.OPEN);
-                    for (Position pos : openPositions) {
-                        double currentPrice = marketDataService.getCurrentPrice(
-                                pos.getAsset(), lobby.getDataset(), lobby.getCurrentTickIndex());
-                        double returnValue = calculateReturnValue(pos, currentPrice);
-                        p.setCashBalance(p.getCashBalance() + returnValue);
-                        pos.setStatus(PositionStatus.CLOSED);
-                        pos.setClosedAt(LocalDateTime.now());
-                        positionRepository.save(pos);
-                    }
-                    portfolioRepository.save(p);
-                }
-
-                for (int i = 0; i < portfolios.size(); i++) {
-                    Portfolio p = portfolios.get(i);
-                    double profit = p.getCashBalance() - p.getStartBalance();
-                    boolean won = i == 0;
-                    seasonService.updateSeasonStats(p.getUser(), profit, won, lobby.getGameMode());
-                }
-
-                messagingTemplate.convertAndSend(
-                        "/topic/lobby/" + lobby.getId(),
-                        GameUpdateMessage.builder()
-                                .lobbyId(lobby.getId())
-                                .tickIndex(lobby.getCurrentTickIndex())
-                                .asset(getAssetForDataset(lobby.getDataset()))
-                                .currentPrice(candles.get(lobby.getCurrentTickIndex()).getClose())
-                                .open(candles.get(lobby.getCurrentTickIndex()).getOpen())
-                                .high(candles.get(lobby.getCurrentTickIndex()).getHigh())
-                                .low(candles.get(lobby.getCurrentTickIndex()).getLow())
-                                .close(candles.get(lobby.getCurrentTickIndex()).getClose())
-                                .timestamp(candles.get(lobby.getCurrentTickIndex()).getTimestamp())
-                                .build()
-                );
+            if (currentCandle >= candles.size()) {
+                finishLobby(lobby, candles);
                 continue;
             }
 
-            lobby.setCurrentTickIndex(nextTick);
-            lobby.setLastTickTime(LocalDateTime.now());
-            lobbyRepository.save(lobby);
+            MarketCandle candle = candles.get(currentCandle);
+            double prevClose = currentCandle > 0 ? candles.get(currentCandle - 1).getClose() : candle.getOpen();
+            double interpolatedPrice = interpolate(prevClose, candle, currentSubTick, subTicksPerCandle);
 
-            MarketCandle currentCandle = candles.get(nextTick);
+            currentPrices.put(lobby.getId(), interpolatedPrice);
+
+            int nextSubTick = currentSubTick + 1;
+            boolean candleComplete = nextSubTick >= subTicksPerCandle;
+
+            if (candleComplete) {
+                lobby.setCurrentSubTick(0);
+                lobby.setCurrentTickIndex(currentCandle + 1);
+            } else {
+                lobby.setCurrentSubTick(nextSubTick);
+            }
+
+            lobbyRepository.save(lobby);
 
             messagingTemplate.convertAndSend(
                     "/topic/lobby/" + lobby.getId(),
                     GameUpdateMessage.builder()
                             .lobbyId(lobby.getId())
-                            .tickIndex(nextTick)
-                            .asset(getAssetForDataset(lobby.getDataset()))
-                            .open(currentCandle.getOpen())
-                            .high(currentCandle.getHigh())
-                            .low(currentCandle.getLow())
-                            .close(currentCandle.getClose())
-                            .currentPrice(currentCandle.getClose())
-                            .timestamp(currentCandle.getTimestamp())
+                            .tickIndex(currentCandle)
+                            .subTick(currentSubTick)
+                            .asset(lobby.getAsset())
+                            .open(candle.getOpen())
+                            .high(candle.getHigh())
+                            .low(candle.getLow())
+                            .close(interpolatedPrice)
+                            .currentPrice(interpolatedPrice)
+                            .timestamp(candle.getTimestamp())
+                            .candleComplete(candleComplete)
                             .build()
             );
         }
+    }
+
+    private double interpolate(double prevClose, MarketCandle candle, int subTick, int totalSubTicks) {
+        double progress = (double) subTick / totalSubTicks;
+        double targetClose = candle.getClose();
+        double high = candle.getHigh();
+        double low = candle.getLow();
+
+        double trend = (targetClose - prevClose) * progress;
+        double base = prevClose + trend;
+
+        double volatility = (high - low) * 0.15;
+        double noise = (Math.random() - 0.5) * 2 * volatility;
+
+        double price = base + noise;
+        price = Math.max(low, Math.min(high, price));
+
+        return Math.round(price * 100.0) / 100.0;
+    }
+
+    private void finishLobby(Lobby lobby, List<MarketCandle> candles) {
+        lobby.setStatus(LobbyStatus.FINISHED);
+        lobby.setEndedAt(LocalDateTime.now());
+
+        List<Portfolio> portfolios = portfolioRepository.findByLobby(lobby);
+        for (Portfolio p : portfolios) {
+            List<Position> openPositions = positionRepository.findByPortfolioAndStatus(p, PositionStatus.OPEN);
+            for (Position pos : openPositions) {
+                double currentPrice = currentPrices.getOrDefault(lobby.getId(),
+                        candles.get(candles.size() - 1).getClose());
+                double returnValue = calculateReturnValue(pos, currentPrice);
+                p.setCashBalance(p.getCashBalance() + returnValue);
+                pos.setStatus(PositionStatus.CLOSED);
+                pos.setClosedAt(LocalDateTime.now());
+                positionRepository.save(pos);
+            }
+            portfolioRepository.save(p);
+        }
+
+        portfolios.sort((a, b) -> Double.compare(b.getCashBalance(), a.getCashBalance()));
+        for (int i = 0; i < portfolios.size(); i++) {
+            Portfolio p = portfolios.get(i);
+            double profit = p.getCashBalance() - p.getStartBalance();
+            seasonService.updateSeasonStats(p.getUser(), profit, i == 0, lobby.getGameMode());
+        }
+
+        lobbyRepository.save(lobby);
+
+        MarketCandle last = candles.get(candles.size() - 1);
+        messagingTemplate.convertAndSend(
+                "/topic/lobby/" + lobby.getId(),
+                GameUpdateMessage.builder()
+                        .lobbyId(lobby.getId())
+                        .tickIndex(candles.size() - 1)
+                        .subTick(0)
+                        .asset(lobby.getAsset())
+                        .open(last.getOpen())
+                        .high(last.getHigh())
+                        .low(last.getLow())
+                        .close(last.getClose())
+                        .currentPrice(last.getClose())
+                        .timestamp(last.getTimestamp())
+                        .candleComplete(true)
+                        .build()
+        );
+
+        lastTickTimes.remove(lobby.getId());
+        currentPrices.remove(lobby.getId());
     }
 
     private double calculateReturnValue(Position position, double currentPrice) {
@@ -127,7 +186,6 @@ public class GameEngineService {
 
     private String getAssetForDataset(String dataset) {
         if (dataset.startsWith("ETH")) return "ETH";
-        if (dataset.startsWith("SOL")) return "SOL";
         return "BTC";
     }
 }

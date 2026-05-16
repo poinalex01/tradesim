@@ -4,45 +4,61 @@ import com.tradesim.dto.CreateLobbyRequest;
 import com.tradesim.dto.LobbyResponse;
 import com.tradesim.dto.PortfolioResponse;
 import com.tradesim.entity.*;
-import com.tradesim.repository.LobbyRepository;
-import com.tradesim.repository.PortfolioRepository;
-import com.tradesim.repository.PositionRepository;
-import com.tradesim.repository.UserRepository;
+import com.tradesim.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class LobbyService {
     private static final int START_BALANCE = 10000;
 
+    private static final Map<String, List<String>> DATASET_POOL = Map.of(
+            "SCALPING", List.of("BTC_SCALP_1", "BTC_SCALP_2", "BTC_SCALP_3", "ETH_SCALP_1", "ETH_SCALP_2"),
+            "DAY_TRADING", List.of("BTC_DAY_1", "BTC_DAY_2", "BTC_DAY_3", "BTC_DAY_4", "ETH_DAY_1"),
+            "SWING_TRADING", List.of("BTC_SWING_1", "BTC_SWING_2", "BTC_SWING_3", "ETH_SWING_1", "ETH_SWING_2")
+    );
+
+    private static final Map<String, Integer> GAMEMODE_TICK_INTERVAL = Map.of(
+            "SCALPING", 2,
+            "DAY_TRADING", 5,
+            "SWING_TRADING", 8
+    );
+
     private final LobbyRepository lobbyRepository;
     private final UserRepository userRepository;
     private final PortfolioRepository portfolioRepository;
     private final PositionRepository positionRepository;
     private final MarketDataService marketDataService;
+    private final MarketCandleRepository marketCandleRepository;
 
     public LobbyResponse createLobby(CreateLobbyRequest request, String username) {
         User creator = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        checkPlayerNotAlreadyInActiveGame(creator, request.getGameMode());
+
         Lobby lobby = Lobby.builder()
                 .name(request.getName())
                 .maxPlayers(request.getMaxPlayers())
                 .startBalance(START_BALANCE)
-                .dataset(request.getDataset())
+                .dataset("PENDING")
+                .asset("PENDING")
+                .candleInterval("1d")
+                .contextCandleCount(0)
                 .gameMode(request.getGameMode())
                 .maxLeverage(request.getMaxLeverage())
                 .status(LobbyStatus.WAITING)
                 .creator(creator)
                 .players(new ArrayList<>(List.of(creator)))
+                .tickIntervalSeconds(5)
                 .build();
 
-        checkPlayerNotAlreadyInActiveGame(creator, request.getGameMode());
         lobbyRepository.save(lobby);
         return toResponse(lobby);
     }
@@ -110,9 +126,24 @@ public class LobbyService {
             throw new RuntimeException("Lobby already started");
         }
 
+        String dataset = pickRandomDataset(lobby.getGameMode());
+        String asset = getAssetForDataset(dataset);
+
+        List<MarketCandle> candles = marketCandleRepository
+                .findByDatasetAndAssetOrderByTimestampAsc(dataset, asset);
+
+        long contextCount = candles.stream().filter(MarketCandle::isContextCandle).count();
+
+        String interval = candles.isEmpty() ? "1d" : candles.get(0).getInterval();
+
+        lobby.setDataset(dataset);
+        lobby.setAsset(asset);
+        lobby.setCandleInterval(interval);
+        lobby.setContextCandleCount((int) contextCount);
         lobby.setStatus(LobbyStatus.RUNNING);
         lobby.setStartedAt(LocalDateTime.now());
-        lobby.setCurrentTickIndex(0);
+        lobby.setCurrentTickIndex((int) contextCount);
+        lobby.setTickIntervalSeconds(GAMEMODE_TICK_INTERVAL.getOrDefault(lobby.getGameMode(), 5));
         lobbyRepository.save(lobby);
         return toResponse(lobby);
     }
@@ -165,5 +196,17 @@ public class LobbyService {
         lobbyRepository.findActiveByUserAndGameMode(user, gameMode).ifPresent(l -> {
             throw new RuntimeException("You already have an active " + gameMode + " lobby");
         });
+    }
+
+    private String pickRandomDataset(String gameMode) {
+        List<String> pool = DATASET_POOL.get(gameMode);
+        if (pool == null) throw new RuntimeException("Unknown gameMode: " + gameMode);
+        return pool.get(new java.util.Random().nextInt(pool.size()));
+    }
+
+    private String getAssetForDataset(String dataset) {
+        if (dataset.startsWith("ETH")) return "ETH";
+        if (dataset.startsWith("SOL")) return "SOL";
+        return "BTC";
     }
 }

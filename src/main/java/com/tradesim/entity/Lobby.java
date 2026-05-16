@@ -31,8 +31,8 @@ public class Lobby {
     @Column(nullable = false)
     private double startBalance;
 
-    @Column(nullable = false)
-    private String dataset;
+    @Column(nullable = false, columnDefinition = "varchar(255) default 'PENDING'")
+    private String dataset = "PENDING";
 
     @Column(nullable = false)
     private String gameMode;
@@ -67,4 +67,12 @@ public class Lobby {
     private int tickIntervalSeconds = 5;
 
     private LocalDateTime lastTickTime;
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private int contextCandleCount = 0;
+
+    @Column(nullable = false, columnDefinition = "varchar(255) default '1d'")
+    private String candleInterval = "1d";
+
+    @Column(nullable = false, columnDefinition = "varchar(255) default 'PENDING'")
+    private String asset = "PENDING";
 }

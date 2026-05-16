@@ -43,4 +43,10 @@ public class MarketCandle {
 
     @Column(nullable = false)
     private double volume;
+
+    @Column(nullable = false, columnDefinition = "varchar(255) default '1d'")
+    private String interval = "1d";
+
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean contextCandle = false;
 }

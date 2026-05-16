@@ -6,7 +6,6 @@ import lombok.Data;
 public class CreateLobbyRequest {
     private String name;
     private int maxPlayers;
-    private String dataset;
     private String gameMode;
     private int maxLeverage;
 }

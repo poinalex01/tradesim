@@ -19,9 +19,11 @@ public class MarketDataController {
     public ResponseEntity<String> loadDataset(
             @RequestParam String asset,
             @RequestParam String dataset,
+            @RequestParam String interval,
             @RequestParam long from,
-            @RequestParam long to) {
-        return ResponseEntity.ok(marketDataService.loadDataset(asset, dataset, from, to));
+            @RequestParam long to,
+            @RequestParam(defaultValue = "0") int contextCount) {
+        return ResponseEntity.ok(marketDataService.loadDataset(asset, dataset, interval, from, to, contextCount));
     }
 
     @GetMapping("/candles")

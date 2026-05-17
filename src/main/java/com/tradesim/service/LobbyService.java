@@ -19,26 +19,42 @@ public class LobbyService {
     private static final int START_BALANCE = 10000;
 
     private final GameEngineService gameEngineService;
-
-
-    private static final Map<String, List<String>> DATASET_POOL = Map.of(
-            "SCALPING", List.of("BTC_SCALP_1", "BTC_SCALP_2", "BTC_SCALP_3", "ETH_SCALP_1", "ETH_SCALP_2"),
-            "DAY_TRADING", List.of("BTC_DAY_1", "BTC_DAY_2", "BTC_DAY_3", "BTC_DAY_4", "ETH_DAY_1"),
-            "SWING_TRADING", List.of("BTC_SWING_1", "BTC_SWING_2", "BTC_SWING_3", "ETH_SWING_1", "ETH_SWING_2")
-    );
-
-    private static final Map<String, Integer> GAMEMODE_TICK_INTERVAL = Map.of(
-            "SCALPING", 2,
-            "DAY_TRADING", 5,
-            "SWING_TRADING", 8
-    );
-
     private final LobbyRepository lobbyRepository;
     private final UserRepository userRepository;
     private final PortfolioRepository portfolioRepository;
     private final PositionRepository positionRepository;
     private final MarketDataService marketDataService;
     private final MarketCandleRepository marketCandleRepository;
+
+    private static final Map<String, String> GAMEMODE_INTERVAL = Map.of(
+            "SCALPING", "1h",
+            "DAY_TRADING", "1d",
+            "SWING_TRADING", "1w"
+    );
+
+    private static final Map<String, Integer> CONTEXT_CANDLES = Map.of(
+            "SCALPING", 96,
+            "DAY_TRADING", 60,
+            "SWING_TRADING", 24
+    );
+
+    private static final List<String> ASSETS = List.of("BTC", "ETH");
+
+    private long[] getRandomTimeRange(String gameMode) {
+        java.util.Random rand = new java.util.Random();
+        long minTime = 1514764800L;
+        long maxTime = 1704067200L;
+
+        long duration = switch (gameMode) {
+            case "SCALPING" -> 7 * 24 * 3600L;
+            case "DAY_TRADING" -> 90 * 24 * 3600L;
+            case "SWING_TRADING" -> 52 * 7 * 24 * 3600L;
+            default -> 90 * 24 * 3600L;
+        };
+
+        long start = minTime + (long)(rand.nextDouble() * (maxTime - duration - minTime));
+        return new long[]{start, start + duration};
+    }
 
     public LobbyResponse createLobby(CreateLobbyRequest request, String username) {
         User creator = userRepository.findByUsername(username)

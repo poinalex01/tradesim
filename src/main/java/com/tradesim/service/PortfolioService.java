@@ -19,6 +19,7 @@ public class PortfolioService {
     private final UserRepository userRepository;
     private final LobbyRepository lobbyRepository;
     private final MarketDataService marketDataService;
+    private final GameEngineService gameEngineService;
 
     public Portfolio getOrCreatePortfolio(User user, Lobby lobby) {
         Optional<Portfolio> existing = portfolioRepository.findByUserAndLobby(user, lobby);
@@ -72,20 +73,19 @@ public class PortfolioService {
     }
 
     private double calculatePositionValue(Position position, Lobby lobby) {
-        double currentPrice = marketDataService.getCurrentPrice(
-                position.getAsset(), lobby.getDataset(), lobby.getCurrentTickIndex());
+        double currentPrice = gameEngineService.getLivePrice(
+                lobby.getId(), position.getAsset(), lobby.getDataset(), lobby.getCurrentTickIndex());
         if (position.getType() == PositionType.LONG) {
             return position.getQuantity() * currentPrice;
         } else {
             double pnl = (position.getEntryPrice() - currentPrice) * position.getQuantity() * position.getLeverage();
-            double initialValue = position.getEntryPrice() * position.getQuantity();
-            return initialValue + pnl;
+            return position.getEntryPrice() * position.getQuantity() + pnl;
         }
     }
 
     private PositionResponse toPositionResponse(Position position, Lobby lobby) {
-        double currentPrice = marketDataService.getCurrentPrice(
-                position.getAsset(), lobby.getDataset(), lobby.getCurrentTickIndex());
+        double currentPrice = gameEngineService.getLivePrice(
+                lobby.getId(), position.getAsset(), lobby.getDataset(), lobby.getCurrentTickIndex());
         double pnl;
         if (position.getType() == PositionType.LONG) {
             pnl = (currentPrice - position.getEntryPrice()) * position.getQuantity() * position.getLeverage();

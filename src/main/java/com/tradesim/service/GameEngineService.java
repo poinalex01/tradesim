@@ -188,4 +188,10 @@ public class GameEngineService {
         if (dataset.startsWith("ETH")) return "ETH";
         return "BTC";
     }
+
+    public double getLivePrice(Long lobbyId, String asset, String dataset, int tickIndex) {
+        Double livePrice = currentPrices.get(lobbyId);
+        if (livePrice != null && livePrice > 0) return livePrice;
+        return marketDataService.getCurrentPrice(asset, dataset, tickIndex);
+    }
 }

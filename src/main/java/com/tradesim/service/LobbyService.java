@@ -18,6 +18,9 @@ import java.util.Map;
 public class LobbyService {
     private static final int START_BALANCE = 10000;
 
+    private final GameEngineService gameEngineService;
+
+
     private static final Map<String, List<String>> DATASET_POOL = Map.of(
             "SCALPING", List.of("BTC_SCALP_1", "BTC_SCALP_2", "BTC_SCALP_3", "ETH_SCALP_1", "ETH_SCALP_2"),
             "DAY_TRADING", List.of("BTC_DAY_1", "BTC_DAY_2", "BTC_DAY_3", "BTC_DAY_4", "ETH_DAY_1"),
@@ -180,8 +183,8 @@ public class LobbyService {
     }
 
     private double calculatePositionValue(Position pos, Lobby lobby) {
-        double currentPrice = marketDataService.getCurrentPrice(
-                pos.getAsset(), lobby.getDataset(), lobby.getCurrentTickIndex());
+        double currentPrice = gameEngineService.getLivePrice(
+                lobby.getId(), pos.getAsset(), lobby.getDataset(), lobby.getCurrentTickIndex());
         if (pos.getType() == PositionType.LONG) {
             return pos.getQuantity() * currentPrice;
         } else {

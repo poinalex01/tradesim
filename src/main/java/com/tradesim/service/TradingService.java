@@ -19,6 +19,7 @@ public class TradingService {
     private final UserRepository userRepository;
     private final MarketDataService marketDataService;
     private final PortfolioService portfolioService;
+    private final GameEngineService gameEngineService;
 
     public PositionResponse openPosition(String username, Long lobbyId, TradeRequest request) {
         User user = userRepository.findByUsername(username)
@@ -28,8 +29,8 @@ public class TradingService {
 
         Portfolio portfolio = portfolioService.getOrCreatePortfolio(user, lobby);
 
-        double currentPrice = marketDataService.getCurrentPrice(
-                request.getAsset(), lobby.getDataset(), lobby.getCurrentTickIndex());
+        double currentPrice = gameEngineService.getLivePrice(
+                lobby.getId(), request.getAsset(), lobby.getDataset(), lobby.getCurrentTickIndex());
         if (currentPrice == 0) throw new RuntimeException("No price data for asset");
 
         if (request.getLeverage() < 1 || request.getLeverage() > lobby.getMaxLeverage()) {
@@ -58,7 +59,6 @@ public class TradingService {
                 .build();
 
         positionRepository.save(position);
-
         return toPositionResponse(position, currentPrice);
     }
 
@@ -81,8 +81,8 @@ public class TradingService {
             throw new RuntimeException("Position already closed");
         }
 
-        double currentPrice = marketDataService.getCurrentPrice(
-                position.getAsset(), lobby.getDataset(), lobby.getCurrentTickIndex());
+        double currentPrice = gameEngineService.getLivePrice(
+                lobby.getId(), position.getAsset(), lobby.getDataset(), lobby.getCurrentTickIndex());
         double returnValue = calculateReturnValue(position, currentPrice);
 
         portfolio.setCashBalance(portfolio.getCashBalance() + returnValue);

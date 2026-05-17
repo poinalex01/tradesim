@@ -144,23 +144,27 @@ public class LobbyService {
             throw new RuntimeException("Lobby already started");
         }
 
-        String dataset = pickRandomDataset(lobby.getGameMode());
-        String asset = getAssetForDataset(dataset);
+        String gameMode = lobby.getGameMode();
+        String asset = ASSETS.get(new java.util.Random().nextInt(ASSETS.size()));
+        String interval = GAMEMODE_INTERVAL.get(gameMode);
+        int contextCount = CONTEXT_CANDLES.get(gameMode);
+        long[] timeRange = getRandomTimeRange(gameMode);
+        String dataset = asset + "_" + gameMode + "_" + timeRange[0];
+
+        marketDataService.loadDataset(asset, dataset, interval, timeRange[0], timeRange[1], contextCount);
 
         List<MarketCandle> candles = marketCandleRepository
                 .findByDatasetAndAssetOrderByTimestampAsc(dataset, asset);
 
-        long contextCount = candles.stream().filter(MarketCandle::isContextCandle).count();
-
-        String interval = candles.isEmpty() ? "1d" : candles.get(0).getInterval();
+        long contextCandleCount = candles.stream().filter(MarketCandle::isContextCandle).count();
 
         lobby.setDataset(dataset);
         lobby.setAsset(asset);
         lobby.setCandleInterval(interval);
-        lobby.setContextCandleCount((int) contextCount);
+        lobby.setContextCandleCount((int) contextCandleCount);
         lobby.setStatus(LobbyStatus.RUNNING);
         lobby.setStartedAt(LocalDateTime.now());
-        lobby.setCurrentTickIndex((int) contextCount);
+        lobby.setCurrentTickIndex((int) contextCandleCount);
         lobbyRepository.save(lobby);
         return toResponse(lobby);
     }
@@ -213,17 +217,5 @@ public class LobbyService {
         lobbyRepository.findActiveByUserAndGameMode(user, gameMode).ifPresent(l -> {
             throw new RuntimeException("You already have an active " + gameMode + " lobby");
         });
-    }
-
-    private String pickRandomDataset(String gameMode) {
-        List<String> pool = DATASET_POOL.get(gameMode);
-        if (pool == null) throw new RuntimeException("Unknown gameMode: " + gameMode);
-        return pool.get(new java.util.Random().nextInt(pool.size()));
-    }
-
-    private String getAssetForDataset(String dataset) {
-        if (dataset.startsWith("ETH")) return "ETH";
-        if (dataset.startsWith("SOL")) return "SOL";
-        return "BTC";
     }
 }

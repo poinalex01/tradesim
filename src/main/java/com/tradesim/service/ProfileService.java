@@ -52,8 +52,8 @@ public class ProfileService {
             double pnlPercent = (pnl / portfolio.getStartBalance()) * 100;
             totalPnl += pnl;
 
-            if (portfolio.getCashBalance() > bestValue) {
-                bestValue = portfolio.getCashBalance();
+            if (pnl > bestValue) {
+                bestValue = pnl;
             }
 
             history.add(GameHistoryEntry.builder()

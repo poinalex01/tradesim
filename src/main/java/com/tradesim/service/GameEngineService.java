@@ -34,15 +34,15 @@ public class GameEngineService {
     );
 
     private static final Map<String, Integer> TICK_INTERVAL_MS = Map.of(
-            "SCALPING", 1000,
-            "DAY_TRADING", 5000,
-            "SWING_TRADING", 30000
+            "SCALPING", 250,
+            "DAY_TRADING", 500,
+            "SWING_TRADING", 1000
     );
 
     private final Map<Long, Double> currentPrices = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<Long, Long> lastTickTimes = new java.util.concurrent.ConcurrentHashMap<>();
 
-    @Scheduled(fixedDelay = 500)
+    @Scheduled(fixedDelay = 100)
     public void tick() {
         List<Lobby> runningLobbies = lobbyRepository.findByStatus(LobbyStatus.RUNNING);
 

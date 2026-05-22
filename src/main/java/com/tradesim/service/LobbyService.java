@@ -33,9 +33,9 @@ public class LobbyService {
     );
 
     private static final Map<String, Integer> CONTEXT_CANDLES = Map.of(
-            "SCALPING", 96,
-            "DAY_TRADING", 60,
-            "SWING_TRADING", 24
+            "SCALPING", 200,
+            "DAY_TRADING", 120,
+            "SWING_TRADING", 52
     );
 
     private static final List<String> ASSETS = List.of("BTC", "ETH");

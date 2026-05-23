@@ -33,7 +33,7 @@ public class LobbyService {
     );
 
     private static final Map<String, Integer> CONTEXT_CANDLES = Map.of(
-            "SCALPING", 200,
+            "SCALPING", 96,
             "DAY_TRADING", 120,
             "SWING_TRADING", 52
     );
@@ -46,7 +46,7 @@ public class LobbyService {
         long maxTime = 1704067200L;
 
         long duration = switch (gameMode) {
-            case "SCALPING" -> 7 * 24 * 3600L;
+            case "SCALPING" -> 14 * 24 * 3600L;
             case "DAY_TRADING" -> 90 * 24 * 3600L;
             case "SWING_TRADING" -> 52 * 7 * 24 * 3600L;
             default -> 90 * 24 * 3600L;
